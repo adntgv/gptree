@@ -26,6 +26,12 @@ const ThreadItem = ({ thread, level, isActive }: ThreadItemProps) => {
     selectThread(thread.id);
   };
   
+  // Check if there are any pending messages in this thread
+  const hasPendingMessages = thread.messages.some(msg => msg.status === 'pending');
+  
+  // Check if there are any error messages in this thread
+  const hasErrorMessages = thread.messages.some(msg => msg.status === 'error');
+  
   return (
     <div className="mb-1">
       <div 
@@ -44,7 +50,24 @@ const ThreadItem = ({ thread, level, isActive }: ThreadItemProps) => {
           </button>
         )}
         <div className="flex-1 overflow-hidden">
-          <div className="font-medium truncate">{thread.title || 'Untitled'}</div>
+          <div className="font-medium truncate flex items-center">
+            <span className="text-gray-800">{thread.title || 'Untitled'}</span>
+            
+            {/* Status indicators */}
+            {thread.hasUnread && (
+              <span className="ml-2 w-2 h-2 bg-blue-500 rounded-full" title="Unread messages"></span>
+            )}
+            {hasPendingMessages && (
+              <span className="ml-2 text-xs bg-yellow-100 text-yellow-800 px-1 rounded">
+                Processing...
+              </span>
+            )}
+            {hasErrorMessages && (
+              <span className="ml-2 text-xs bg-red-100 text-red-800 px-1 rounded">
+                Error
+              </span>
+            )}
+          </div>
           {thread.summary && (
             <div className="text-xs text-gray-600 truncate">{thread.summary}</div>
           )}
@@ -83,18 +106,45 @@ const SidebarTree = () => {
     newRoot('New Chat');
   };
   
+  // Count total pending messages across all threads
+  const pendingMessagesCount = threads.reduce((count, thread) => {
+    const threadPendingCount = thread.messages.filter(m => m.status === 'pending').length;
+    return count + threadPendingCount;
+  }, 0);
+  
+  // Count total threads with unread messages
+  const unreadThreadsCount = threads.filter(t => t.hasUnread).length;
+  
   return (
     <div className="w-64 h-screen flex flex-col border-r bg-white shadow-sm">
-      <div className="p-4 border-b">
+      <div className="p-4 border-b bg-gray-50">
         <button 
           className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow-sm transition-colors flex items-center justify-center font-medium"
           onClick={handleNewChat}
         >
           <span className="mr-1">+</span> New Chat
         </button>
+        
+        {/* Global status indicators */}
+        {(pendingMessagesCount > 0 || unreadThreadsCount > 0) && (
+          <div className="mt-3 flex items-center text-xs">
+            {pendingMessagesCount > 0 && (
+              <div className="flex items-center mr-3">
+                <span className="w-2 h-2 bg-yellow-400 rounded-full mr-1"></span>
+                <span className="text-gray-700">{pendingMessagesCount} processing</span>
+              </div>
+            )}
+            {unreadThreadsCount > 0 && (
+              <div className="flex items-center">
+                <span className="w-2 h-2 bg-blue-500 rounded-full mr-1"></span>
+                <span className="text-gray-700">{unreadThreadsCount} unread</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
       
-      <div className="flex-1 overflow-y-auto p-2">
+      <div className="flex-1 overflow-y-auto p-2 bg-white">
         {rootThreads.length > 0 ? (
           rootThreads.map(thread => (
             <ThreadItem 

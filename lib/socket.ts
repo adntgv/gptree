@@ -39,6 +39,11 @@ export const initSocket = () => {
     useChatStore.getState().appendMessage(data.threadId, data.message);
   });
 
+  // Listen for message status updates
+  socket.on('message_status', (data: { threadId: string; messageId: string; status: 'pending' | 'generating' | 'completed' | 'error' }) => {
+    useChatStore.getState().updateMessageStatus(data.threadId, data.messageId, data.status);
+  });
+
   // Listen for summary updates
   socket.on('thread_summary', (data: { threadId: string; summary: string }) => {
     const { threads } = useChatStore.getState();

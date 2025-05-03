@@ -6,6 +6,7 @@ export type Message = {
   author: 'user' | 'gpt' | 'system';
   text: string;
   timestamp: number;
+  status?: 'pending' | 'generating' | 'completed' | 'error';
 };
 
 export type Thread = {
@@ -16,6 +17,7 @@ export type Thread = {
   messages: Message[];
   children: Thread[];
   summary?: string;            // auto-generated branch recap
+  hasUnread?: boolean;         // indicates new unread messages
 };
 
 export type NextApiResponseServerIO = NextApiResponse & {

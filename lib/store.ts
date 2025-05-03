@@ -12,6 +12,8 @@ interface ChatState {
   sendMessage: (text: string) => Promise<void>;
   updateThread: (thread: Thread) => void;
   appendMessage: (threadId: string, message: Message) => void;
+  updateMessageStatus: (threadId: string, messageId: string, status: 'pending' | 'generating' | 'completed' | 'error') => void;
+  markThreadRead: (threadId: string) => void;
   fetchThreads: () => Promise<void>;
 }
 
@@ -182,6 +184,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
   
   selectThread: (id) => {
+    // Mark as read when selecting
+    get().markThreadRead(id);
     set({ currentThreadId: id });
   },
   
@@ -194,12 +198,25 @@ export const useChatStore = create<ChatState>((set, get) => ({
       author: 'user',
       text,
       timestamp: Date.now(),
+      status: 'completed'
     };
     
     // Append the user message
     get().appendMessage(currentThreadId, userMessage);
     
     try {
+      // Create a pending GPT message immediately
+      const pendingMessage: Message = {
+        id: nanoid(),
+        author: 'gpt',
+        text: '',
+        timestamp: Date.now(),
+        status: 'pending'
+      };
+      
+      // Add the pending message
+      get().appendMessage(currentThreadId, pendingMessage);
+      
       // Call the API to get GPT response
       const response = await fetch('/api/messages', {
         method: 'POST',
@@ -209,14 +226,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
         body: JSON.stringify({
           threadId: currentThreadId,
           message: text,
+          pendingMessageId: pendingMessage.id
         }),
       });
       
       if (!response.ok) {
+        // Mark message as error if request fails
+        get().updateMessageStatus(currentThreadId, pendingMessage.id, 'error');
         throw new Error('Failed to send message to API');
       }
       
-      // API will handle adding the GPT message through a websocket
+      // API will handle updating the GPT message through a websocket
     } catch (error) {
       console.error('Error sending message:', error);
     }
@@ -231,16 +251,51 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
   
   appendMessage: (threadId, message) => {
+    set(state => {
+      // Check if this is not the currently selected thread
+      const isCurrentThread = threadId === state.currentThreadId;
+      
+      return {
+        threads: state.threads.map(thread => {
+          if (thread.id === threadId) {
+            return {
+              ...thread,
+              messages: [...thread.messages, message],
+              // Mark thread as having unread messages if not the current thread
+              hasUnread: isCurrentThread ? thread.hasUnread : true
+            };
+          }
+          return thread;
+        })
+      };
+    });
+  },
+  
+  updateMessageStatus: (threadId, messageId, status) => {
     set(state => ({
       threads: state.threads.map(thread => {
         if (thread.id === threadId) {
           return {
             ...thread,
-            messages: [...thread.messages, message]
+            messages: thread.messages.map(message => 
+              message.id === messageId 
+                ? { ...message, status } 
+                : message
+            )
           };
         }
         return thread;
       })
+    }));
+  },
+  
+  markThreadRead: (threadId) => {
+    set(state => ({
+      threads: state.threads.map(thread => 
+        thread.id === threadId 
+          ? { ...thread, hasUnread: false } 
+          : thread
+      )
     }));
   }
 })); 

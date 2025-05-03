@@ -4,17 +4,60 @@ import { useState, useRef, useEffect } from 'react';
 import { useChatStore } from '@/lib/store';
 import { Message } from '@/lib/types';
 
-const MessageItem = ({ message }: { message: Message }) => {
+type MessageItemProps = {
+  message: Message;
+};
+
+const MessageItem = ({ message }: MessageItemProps) => {
   const isUser = message.author === 'user';
   
+  // Status indicators for messages
+  const renderStatusIndicator = () => {
+    if (!message.status || message.status === 'completed') {
+      return null;
+    }
+    
+    if (message.status === 'pending') {
+      return (
+        <div className="flex items-center text-xs text-yellow-600 mt-1">
+          <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          Thinking...
+        </div>
+      );
+    }
+    
+    if (message.status === 'error') {
+      return (
+        <div className="flex items-center text-xs text-red-600 mt-1">
+          <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          Error processing message
+        </div>
+      );
+    }
+    
+    return null;
+  };
+  
   return (
-    <div className={`p-4 ${isUser ? 'bg-white' : 'bg-gray-50'} border-b`}>
+    <div className={`p-4 ${isUser ? 'bg-blue-50' : 'bg-gray-50'} border-b border-gray-200`}>
       <div className="max-w-3xl mx-auto">
-        <div className={`font-medium mb-1 ${isUser ? 'text-blue-600' : 'text-indigo-600'}`}>
+        <div className={`font-medium text-sm mb-1 ${isUser ? 'text-blue-700' : 'text-gray-700'}`}>
           {isUser ? 'You' : 'GPT'}
         </div>
-        <div className="whitespace-pre-wrap text-gray-800 leading-relaxed"> 
-          {message.text}
+        
+        <div className="whitespace-pre-wrap text-gray-800">
+          {message.text || (message.status === 'pending' ? '...' : 'Error generating response')}
+        </div>
+        
+        {renderStatusIndicator()}
+        
+        <div className="text-xs text-gray-500 mt-2">
+          {new Date(message.timestamp).toLocaleTimeString()}
         </div>
       </div>
     </div>
@@ -63,28 +106,42 @@ const ChatWindow = () => {
   
   if (!currentThread) {
     return (
-      <div className="flex-1 flex items-center justify-center">
+      <div className="flex-1 flex items-center justify-center bg-white">
         <div className="text-center">
-          <h2 className="text-2xl font-semibold mb-4">No chat selected</h2>
+          <h2 className="text-2xl font-semibold mb-4 text-gray-800">No chat selected</h2>
           <p className="text-gray-600">Select a chat from the sidebar or create a new one</p>
         </div>
       </div>
     );
   }
   
+  // Check if we have any pending messages
+  const hasPendingMessages = currentThread.messages.some(msg => msg.status === 'pending');
+  
   return (
     <div className="flex-1 flex flex-col h-screen bg-white">
       <div className="border-b p-4 flex items-center justify-between shadow-sm">
         <h1 className="text-xl font-semibold text-gray-900">{currentThread.title}</h1>
-        <button
-          className="px-3 py-1 border rounded-md bg-white hover:bg-gray-50 text-gray-700 transition-colors shadow-sm"
-          onClick={handleBranch}
-        >
-          Branch
-        </button>
+        <div className="flex items-center">
+          {hasPendingMessages && (
+            <div className="text-yellow-600 flex items-center mr-3 text-sm">
+              <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Processing...
+            </div>
+          )}
+          <button
+            className="px-3 py-1 border rounded-md bg-white hover:bg-gray-50 text-gray-700 transition-colors shadow-sm"
+            onClick={handleBranch}
+          >
+            Branch
+          </button>
+        </div>
       </div>
       
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto bg-white">
         {currentThread.messages.map((message) => (
           <div key={message.id} className="relative group">
             <MessageItem message={message} />
@@ -101,24 +158,25 @@ const ChatWindow = () => {
         <div ref={messagesEndRef} />
       </div>
       
-      <div className="border-t p-4 bg-white shadow-md">
-        <form onSubmit={handleSendMessage} className="max-w-3xl mx-auto">
-          <div className="flex">
-            <input
-              type="text"
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              placeholder="Type your message..."
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-800"
-            />
-            <button
-              type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-r-md hover:bg-blue-700 transition-colors"
-              disabled={!inputText.trim()}
-            >
-              Send
-            </button>
-          </div>
+      <div className="border-t p-4 bg-white">
+        <form onSubmit={handleSendMessage} className="flex space-x-4">
+          <input
+            type="text"
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            placeholder="Type your message..."
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800"
+            disabled={hasPendingMessages}
+          />
+          <button
+            type="submit"
+            className={`px-4 py-2 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700 transition-colors ${
+              hasPendingMessages ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
+            disabled={hasPendingMessages}
+          >
+            Send
+          </button>
         </form>
       </div>
     </div>

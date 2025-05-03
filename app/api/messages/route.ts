@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { nanoid } from 'nanoid';
 import { queue } from '@/lib/queue';
 import { generateChatResponse, generateThreadSummary } from '@/lib/gpt';
-import { getThreadById, addMessageToThread, updateThreadSummary } from '@/lib/db';
+import { getThreadById, addMessageToThread, updateThreadSummary, updateMessageStatus } from '@/lib/db';
  
 
 // For Next.js to properly register this as an API route
@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { message, threadId } = body;
+    const { message, threadId, pendingMessageId } = body;
 
     // Check for required fields
     if (!message || !threadId) {
@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
       author: 'user',
       text: message,
       timestamp: Date.now(),
+      status: 'completed',
     });
     
     // Emit socket event for the user message
@@ -56,40 +57,94 @@ export async function POST(req: NextRequest) {
         const updatedThread = await getThreadById(threadId);
         if (!updatedThread) return;
         
-        // Generate GPT response
-        const gptResponseText = await generateChatResponse(updatedThread.messages);
+        // If the client sent a pendingMessageId, update it or create a new GPT message
+        let gptMessage;
         
-        // Add GPT message to thread
-        const gptMessage = await addMessageToThread(threadId, {
-          author: 'gpt',
-          text: gptResponseText,
-          timestamp: Date.now(),
-        });
-        
-        // Get updated thread for summarization
-        const finalThread = await getThreadById(threadId);
-        if (!finalThread) return;
-        
-        // Generate summary for this thread
-        const summary = await generateThreadSummary(finalThread);
-        await updateThreadSummary(threadId, summary);
-        
-        // Emit socket events for real-time updates
-        if (io) {
-          // Emit GPT response
-          io.emit('gpt_response', {
-            threadId,
-            message: gptMessage,
-          });
+        if (pendingMessageId) {
+          // Update the existing pending message's status and content
+          gptMessage = await updateMessageStatus(threadId, pendingMessageId, 'generating');
           
-          // Emit summary update
-          io.emit('thread_summary', {
-            threadId,
-            summary,
-          });
+          // Emit status update
+          if (io) {
+            io.emit('message_status', {
+              threadId,
+              messageId: pendingMessageId,
+              status: 'generating',
+            });
+          }
+        }
+        
+        // Generate GPT response
+        try {
+          const gptResponseText = await generateChatResponse(updatedThread.messages);
+          
+          // Update or add GPT message
+          if (pendingMessageId) {
+            // Update the existing message
+            gptMessage = await updateMessageStatus(threadId, pendingMessageId, 'completed', gptResponseText);
+          } else {
+            // Add a new message (fallback if no pendingMessageId)
+            gptMessage = await addMessageToThread(threadId, {
+              author: 'gpt',
+              text: gptResponseText,
+              timestamp: Date.now(),
+              status: 'completed',
+            });
+          }
+          
+          // Get updated thread for summarization
+          const finalThread = await getThreadById(threadId);
+          if (!finalThread) return;
+          
+          // Generate summary for this thread
+          const summary = await generateThreadSummary(finalThread);
+          await updateThreadSummary(threadId, summary);
+          
+          // Emit socket events for real-time updates
+          if (io) {
+            // Emit GPT response
+            io.emit('gpt_response', {
+              threadId,
+              message: gptMessage,
+            });
+            
+            // Emit summary update
+            io.emit('thread_summary', {
+              threadId,
+              summary,
+            });
+          }
+        } catch (error) {
+          console.error('Error generating GPT response:', error);
+          
+          // Update message status to error if there was a pendingMessageId
+          if (pendingMessageId) {
+            await updateMessageStatus(threadId, pendingMessageId, 'error');
+            
+            // Emit error status
+            if (io) {
+              io.emit('message_status', {
+                threadId,
+                messageId: pendingMessageId,
+                status: 'error',
+              });
+            }
+          }
         }
       } catch (error) {
         console.error('Error processing chat task:', error);
+        // Mark message as error if provided
+        if (pendingMessageId) {
+          await updateMessageStatus(threadId, pendingMessageId, 'error');
+          
+          if (io) {
+            io.emit('message_status', {
+              threadId, 
+              messageId: pendingMessageId,
+              status: 'error',
+            });
+          }
+        }
       }
     });
     

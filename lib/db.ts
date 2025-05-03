@@ -108,4 +108,40 @@ export async function updateThreadSummary(threadId: string, summary: string): Pr
   await db.write();
   
   return thread;
+}
+
+export async function updateMessageStatus(
+  threadId: string, 
+  messageId: string, 
+  status: 'pending' | 'generating' | 'completed' | 'error',
+  text?: string
+): Promise<Message | null> {
+  await db.read();
+  
+  const thread = db.data.threads.find(t => t.id === threadId);
+  
+  if (!thread) {
+    throw new Error(`Thread with id ${threadId} not found`);
+  }
+  
+  const messageIndex = thread.messages.findIndex(m => m.id === messageId);
+  
+  if (messageIndex === -1) {
+    console.error(`Message with id ${messageId} not found in thread ${threadId}`);
+    return null;
+  }
+  
+  // Update the message
+  const updatedMessage = {
+    ...thread.messages[messageIndex],
+    status,
+    // Update text only if provided
+    ...(text !== undefined ? { text } : {})
+  };
+  
+  thread.messages[messageIndex] = updatedMessage;
+  db.data.lastUpdated = Date.now();
+  await db.write();
+  
+  return updatedMessage;
 } 

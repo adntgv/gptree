@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import SidebarTree from '@/components/SidebarTree';
 import ChatWindow from '@/components/ChatWindow';
 import ThreadSummary from '@/components/ThreadSummary';
 import NewChatModal from '@/components/NewChatModal';
+import { initSocket } from '@/lib/socket';
 
 export default function Home() {
   const [modal, setModal] = useState({
@@ -12,6 +13,11 @@ export default function Home() {
     mode: 'new' as 'new' | 'branch' | 'fork',
     messageId: undefined as string | undefined,
   });
+
+  // Initialize socket connection when the component mounts
+  useEffect(() => {
+    initSocket();
+  }, []);
 
   const openModal = (mode: 'new' | 'branch' | 'fork', messageId?: string) => {
     setModal({
