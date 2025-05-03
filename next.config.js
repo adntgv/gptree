@@ -6,6 +6,10 @@ const nextConfig = {
         source: '/api/socketio/:path*',
         destination: '/api/socketio',
       },
+      {
+        source: '/api/chat',
+        destination: '/api/chat',
+      },
     ];
   },
 }

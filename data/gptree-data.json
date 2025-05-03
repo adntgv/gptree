@@ -1,0 +1,56 @@
+{
+  "threads": [
+    {
+      "title": "New Chat",
+      "parentId": null,
+      "forkedFromMsgId": null,
+      "messages": [],
+      "children": [],
+      "id": "R09FzVnNhsAdycd9el4bG"
+    },
+    {
+      "title": "New Chat",
+      "parentId": null,
+      "forkedFromMsgId": null,
+      "messages": [
+        {
+          "id": "nreVJ1T_Ar4v51qc_lfmJ",
+          "author": "system",
+          "text": "This conversation has just started.",
+          "timestamp": 1746310437403
+        },
+        {
+          "author": "gpt",
+          "text": "Hello! How can I assist you today?",
+          "timestamp": 1746310444740,
+          "id": "jAo9oT8Yy_F3AbZbkw8dA"
+        }
+      ],
+      "children": [],
+      "id": "FpPxJ3sRWneVNVu_lCetI",
+      "summary": "- The conversation begins with a greeting from GPT, indicating readiness to assist.\n- The user has not yet specified their needs or questions."
+    },
+    {
+      "title": "Fork from message",
+      "parentId": "FpPxJ3sRWneVNVu_lCetI",
+      "forkedFromMsgId": "wwDI0pXgBUMiWVII5MYKa",
+      "messages": [
+        {
+          "id": "nreVJ1T_Ar4v51qc_lfmJ",
+          "author": "system",
+          "text": "This conversation has just started.",
+          "timestamp": 1746310437403
+        },
+        {
+          "id": "wwDI0pXgBUMiWVII5MYKa",
+          "author": "user",
+          "text": "hi",
+          "timestamp": 1746310443265
+        }
+      ],
+      "children": [],
+      "id": "bO-zDsOIlYu1Vz8sMH2yc"
+    }
+  ],
+  "lastUpdated": 1746310471425
+}
