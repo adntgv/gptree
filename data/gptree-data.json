@@ -4,9 +4,105 @@
       "title": "New Chat",
       "parentId": null,
       "forkedFromMsgId": null,
-      "messages": [],
+      "messages": [
+        {
+          "id": "Dcy73tt62PJJOHSfCg7S4",
+          "author": "system",
+          "text": "This conversation has just started.",
+          "timestamp": 1746310758603
+        },
+        {
+          "author": "gpt",
+          "text": "Hello! How can I assist you today?",
+          "timestamp": 1746310763500,
+          "id": "WLZcURjt5pSI3oxIyGynu"
+        }
+      ],
       "children": [],
-      "id": "R09FzVnNhsAdycd9el4bG"
+      "id": "Sd0IYbX5D62SX7kEafZOs",
+      "summary": "- The conversation has just begun with a greeting from GPT.\n- GPT is open to providing assistance based on the user's needs."
+    },
+    {
+      "title": "Fork from message",
+      "parentId": "Sd0IYbX5D62SX7kEafZOs",
+      "forkedFromMsgId": "t2pIFY8xXLhFdzBYAF9A8",
+      "messages": [
+        {
+          "id": "Dcy73tt62PJJOHSfCg7S4",
+          "author": "system",
+          "text": "This conversation has just started.",
+          "timestamp": 1746310758603
+        },
+        {
+          "id": "t2pIFY8xXLhFdzBYAF9A8",
+          "author": "user",
+          "text": "hi",
+          "timestamp": 1746310762257
+        }
+      ],
+      "children": [],
+      "id": "FLDMNGrktWGjWdWid80R9"
+    },
+    {
+      "title": "Branch of Fork from message",
+      "parentId": "FLDMNGrktWGjWdWid80R9",
+      "forkedFromMsgId": null,
+      "messages": [
+        {
+          "id": "Dcy73tt62PJJOHSfCg7S4",
+          "author": "system",
+          "text": "This conversation has just started.",
+          "timestamp": 1746310758603
+        },
+        {
+          "id": "t2pIFY8xXLhFdzBYAF9A8",
+          "author": "user",
+          "text": "hi",
+          "timestamp": 1746310762257
+        }
+      ],
+      "children": [],
+      "id": "1KCrcNccKHJpSM7-HuVj6"
+    },
+    {
+      "title": "Branch of Branch of Fork from message",
+      "parentId": "1KCrcNccKHJpSM7-HuVj6",
+      "forkedFromMsgId": null,
+      "messages": [
+        {
+          "id": "Dcy73tt62PJJOHSfCg7S4",
+          "author": "system",
+          "text": "This conversation has just started.",
+          "timestamp": 1746310758603
+        },
+        {
+          "id": "t2pIFY8xXLhFdzBYAF9A8",
+          "author": "user",
+          "text": "hi",
+          "timestamp": 1746310762257
+        },
+        {
+          "author": "gpt",
+          "text": "Hello! How can I assist you today?",
+          "timestamp": 1746310788529,
+          "id": "jAqw3sIN19Sdrp6vt-bki"
+        },
+        {
+          "author": "gpt",
+          "text": "Hello! How can I assist you today?",
+          "timestamp": 1746310819499,
+          "id": "t89ivjMsyoUskj5A5_LqW"
+        },
+        {
+          "author": "gpt",
+          "text": "Hi there! How can I help you today?",
+          "timestamp": 1746310826048,
+          "id": "o2J19VBztmOdfKapSqzNO"
+        }
+      ],
+      "children": [],
+      "id": "Wfg6lfFxV8uzFwBBQ8uYR",
+      "summary": "- The conversation begins with a greeting from the user.\n- The assistant responds with multiple variations of \"Hello\" and offers help."
     },
     {
       "title": "New Chat",
@@ -14,43 +110,142 @@
       "forkedFromMsgId": null,
       "messages": [
         {
-          "id": "nreVJ1T_Ar4v51qc_lfmJ",
+          "id": "bg2Xr9Uf-_LkSQwqPKgN_",
           "author": "system",
           "text": "This conversation has just started.",
-          "timestamp": 1746310437403
+          "timestamp": 1746310933123
+        },
+        {
+          "author": "user",
+          "text": "hi",
+          "timestamp": 1746310936165,
+          "id": "AiWJALkQXtmbe7FlYsZsJ"
         },
         {
           "author": "gpt",
           "text": "Hello! How can I assist you today?",
-          "timestamp": 1746310444740,
-          "id": "jAo9oT8Yy_F3AbZbkw8dA"
+          "timestamp": 1746310937545,
+          "id": "YNKzkO5NpMqKgrEyX-Uof"
+        },
+        {
+          "author": "user",
+          "text": "i am from astana, what is population here?",
+          "timestamp": 1746310955655,
+          "id": "Z2r51PUBWLWf-MxL_9IM5"
+        },
+        {
+          "author": "gpt",
+          "text": "As of my last update, the estimated population of Astana (now known as Nur-Sultan) was around 1.1 million people. However, populations can change over time due to various factors. For the most current population figures, I recommend checking the latest statistics from official sources or local government websites. How else can I assist you?",
+          "timestamp": 1746310957051,
+          "id": "yLFSJX5aceW8dMzylTY5y"
+        },
+        {
+          "author": "user",
+          "text": "where i am from?",
+          "timestamp": 1746310966062,
+          "id": "FDM9lQf0gRLChwu7Hpo_K"
+        },
+        {
+          "author": "gpt",
+          "text": "You mentioned that you are from Astana, which is now called Nur-Sultan, the capital city of Kazakhstan. If you're looking for more specific information or context, feel free to share!",
+          "timestamp": 1746310968164,
+          "id": "H64nhnS-gp5btQf_w0b83"
         }
       ],
       "children": [],
-      "id": "FpPxJ3sRWneVNVu_lCetI",
-      "summary": "- The conversation begins with a greeting from GPT, indicating readiness to assist.\n- The user has not yet specified their needs or questions."
+      "id": "gt4OTeBZtvIUZcclKgbef",
+      "summary": "- The user is from Astana, which is currently known as Nur-Sultan, the capital of Kazakhstan.\n- The estimated population of Nur-Sultan is around 1.1 million, but users are advised to consult official sources for the most current figures."
     },
     {
       "title": "Fork from message",
-      "parentId": "FpPxJ3sRWneVNVu_lCetI",
-      "forkedFromMsgId": "wwDI0pXgBUMiWVII5MYKa",
+      "parentId": "gt4OTeBZtvIUZcclKgbef",
+      "forkedFromMsgId": "yLFSJX5aceW8dMzylTY5y",
       "messages": [
         {
-          "id": "nreVJ1T_Ar4v51qc_lfmJ",
+          "id": "bg2Xr9Uf-_LkSQwqPKgN_",
           "author": "system",
           "text": "This conversation has just started.",
-          "timestamp": 1746310437403
+          "timestamp": 1746310933123
         },
         {
-          "id": "wwDI0pXgBUMiWVII5MYKa",
+          "id": "3MUgje_6oD1wcPpmYCXBm",
           "author": "user",
           "text": "hi",
-          "timestamp": 1746310443265
+          "timestamp": 1746310935876
+        },
+        {
+          "author": "gpt",
+          "text": "Hello! How can I assist you today?",
+          "timestamp": 1746310937545,
+          "id": "YNKzkO5NpMqKgrEyX-Uof"
+        },
+        {
+          "id": "0q9YyQW0QJx_LL45ue8GC",
+          "author": "user",
+          "text": "i am from astana, what is population here?",
+          "timestamp": 1746310955634
+        },
+        {
+          "author": "gpt",
+          "text": "As of my last update, the estimated population of Astana (now known as Nur-Sultan) was around 1.1 million people. However, populations can change over time due to various factors. For the most current population figures, I recommend checking the latest statistics from official sources or local government websites. How else can I assist you?",
+          "timestamp": 1746310957051,
+          "id": "yLFSJX5aceW8dMzylTY5y"
         }
       ],
       "children": [],
-      "id": "bO-zDsOIlYu1Vz8sMH2yc"
+      "id": "ucPwLXZXozYXBmQHLeQfW"
+    },
+    {
+      "title": "Branch of New Chat",
+      "parentId": "gt4OTeBZtvIUZcclKgbef",
+      "forkedFromMsgId": null,
+      "messages": [
+        {
+          "id": "bg2Xr9Uf-_LkSQwqPKgN_",
+          "author": "system",
+          "text": "This conversation has just started.",
+          "timestamp": 1746310933123
+        },
+        {
+          "id": "3MUgje_6oD1wcPpmYCXBm",
+          "author": "user",
+          "text": "hi",
+          "timestamp": 1746310935876
+        },
+        {
+          "author": "gpt",
+          "text": "Hello! How can I assist you today?",
+          "timestamp": 1746310937545,
+          "id": "YNKzkO5NpMqKgrEyX-Uof"
+        },
+        {
+          "id": "0q9YyQW0QJx_LL45ue8GC",
+          "author": "user",
+          "text": "i am from astana, what is population here?",
+          "timestamp": 1746310955634
+        },
+        {
+          "author": "gpt",
+          "text": "As of my last update, the estimated population of Astana (now known as Nur-Sultan) was around 1.1 million people. However, populations can change over time due to various factors. For the most current population figures, I recommend checking the latest statistics from official sources or local government websites. How else can I assist you?",
+          "timestamp": 1746310957051,
+          "id": "yLFSJX5aceW8dMzylTY5y"
+        },
+        {
+          "id": "u8V8k36P2UHZizpxRzzMo",
+          "author": "user",
+          "text": "where i am from?",
+          "timestamp": 1746310966053
+        },
+        {
+          "author": "gpt",
+          "text": "You mentioned that you are from Astana, which is now called Nur-Sultan, the capital city of Kazakhstan. If you're looking for more specific information or context, feel free to share!",
+          "timestamp": 1746310968164,
+          "id": "H64nhnS-gp5btQf_w0b83"
+        }
+      ],
+      "children": [],
+      "id": "MpgcRD7-NWdOtVDdoYN4N"
     }
   ],
-  "lastUpdated": 1746310471425
+  "lastUpdated": 1746310992403
 }

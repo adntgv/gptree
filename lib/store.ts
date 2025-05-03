@@ -12,11 +12,40 @@ interface ChatState {
   sendMessage: (text: string) => Promise<void>;
   updateThread: (thread: Thread) => void;
   appendMessage: (threadId: string, message: Message) => void;
+  fetchThreads: () => Promise<void>;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
   threads: [],
   currentThreadId: null,
+  
+  fetchThreads: async () => {
+    try {
+      const response = await fetch('/api/threads', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch threads');
+      }
+      
+      const { threads, success } = await response.json();
+      
+      if (!success) {
+        throw new Error('API returned unsuccessful response');
+      }
+      
+      set({ 
+        threads,
+        currentThreadId: threads.length > 0 ? threads[0].id : null 
+      });
+    } catch (error) {
+      console.error('Error fetching threads:', error);
+    }
+  },
   
   newRoot: async (title) => {
     try {

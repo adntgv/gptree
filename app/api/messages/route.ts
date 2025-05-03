@@ -22,67 +22,78 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: errorMessage }, { status: 400 });
     }
 
-    // --------------- TODO: Implement your message handling logic here ---------------
-    console.log('Received message:', message, 'for thread:', threadId);
-     
-      // No need to read the body again
-  
-      // Get the thread
-      const thread = await getThreadById(threadId);
-      if (!thread) {
-        console.error(`Thread not found with ID: ${threadId}. Make sure the thread exists.`);
-        return NextResponse.json({ 
-          error: `Thread not found with ID: ${threadId}. Please make sure you create the thread first through the /api/threads endpoint.` 
-        }, { status: 404 });
-      }
-  
-      // Queue the task of generating a GPT response
-      const taskId = `chat-${threadId}-${nanoid(6)}`;
-      
-      queue.enqueue(taskId, async () => {
-        try {
-          // Generate GPT response
-          const gptResponseText = await generateChatResponse(thread.messages);
-          
-          // Add GPT message to thread
-          const gptMessage = await addMessageToThread(threadId, {
-            author: 'gpt',
-            text: gptResponseText,
-            timestamp: Date.now(),
+    // Get the thread
+    const thread = await getThreadById(threadId);
+    if (!thread) {
+      console.error(`Thread not found with ID: ${threadId}. Make sure the thread exists.`);
+      return NextResponse.json({ 
+        error: `Thread not found with ID: ${threadId}. Please make sure you create the thread first through the /api/threads endpoint.` 
+      }, { status: 404 });
+    }
+    
+    // Save the user message to the thread
+    const userMessage = await addMessageToThread(threadId, {
+      author: 'user',
+      text: message,
+      timestamp: Date.now(),
+    });
+    
+    // Emit socket event for the user message
+    const { io } = global as any;
+    if (io) {
+      io.emit('user_message_saved', {
+        threadId,
+        message: userMessage,
+      });
+    }
+
+    // Queue the task of generating a GPT response
+    const taskId = `chat-${threadId}-${nanoid(6)}`;
+    
+    queue.enqueue(taskId, async () => {
+      try {
+        // Get updated thread with the new user message
+        const updatedThread = await getThreadById(threadId);
+        if (!updatedThread) return;
+        
+        // Generate GPT response
+        const gptResponseText = await generateChatResponse(updatedThread.messages);
+        
+        // Add GPT message to thread
+        const gptMessage = await addMessageToThread(threadId, {
+          author: 'gpt',
+          text: gptResponseText,
+          timestamp: Date.now(),
+        });
+        
+        // Get updated thread for summarization
+        const finalThread = await getThreadById(threadId);
+        if (!finalThread) return;
+        
+        // Generate summary for this thread
+        const summary = await generateThreadSummary(finalThread);
+        await updateThreadSummary(threadId, summary);
+        
+        // Emit socket events for real-time updates
+        if (io) {
+          // Emit GPT response
+          io.emit('gpt_response', {
+            threadId,
+            message: gptMessage,
           });
           
-          // Get updated thread for summarization
-          const updatedThread = await getThreadById(threadId);
-          if (!updatedThread) return;
-          
-          // Generate summary for this thread
-          const summary = await generateThreadSummary(updatedThread);
-          await updateThreadSummary(threadId, summary);
-          
-          // Emit socket events for real-time updates
-          const { io } = global as any;
-          if (io) {
-            // Emit GPT response
-            io.emit('gpt_response', {
-              threadId,
-              message: gptMessage,
-            });
-            
-            // Emit summary update
-            io.emit('thread_summary', {
-              threadId,
-              summary,
-            });
-          }
-        } catch (error) {
-          console.error('Error processing chat task:', error);
+          // Emit summary update
+          io.emit('thread_summary', {
+            threadId,
+            summary,
+          });
         }
-      });
-      
-      return NextResponse.json({ success: true, taskId });
-    // Example: Send message to backend service, process it, etc.
-    // const processedResponse = await someService.handleMessage(message);
-    // --------------- END TODO -----------------------------------------------------
+      } catch (error) {
+        console.error('Error processing chat task:', error);
+      }
+    });
+    
+    return NextResponse.json({ success: true, taskId, message: userMessage });
   } catch (error) {
     console.error('Error handling /api/messages:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

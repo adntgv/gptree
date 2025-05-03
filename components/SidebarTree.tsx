@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Thread } from '@/lib/types';
 import { useChatStore } from '@/lib/store';
 
@@ -13,6 +13,7 @@ type ThreadItemProps = {
 const ThreadItem = ({ thread, level, isActive }: ThreadItemProps) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const selectThread = useChatStore(state => state.selectThread);
+  const currentThreadId = useChatStore(state => state.currentThreadId);
   
   const hasChildren = thread.children && thread.children.length > 0;
   
@@ -57,7 +58,7 @@ const ThreadItem = ({ thread, level, isActive }: ThreadItemProps) => {
               key={child.id}
               thread={child}
               level={level + 1}
-              isActive={useChatStore(state => state.currentThreadId === child.id)}
+              isActive={currentThreadId === child.id}
             />
           ))}
         </div>
@@ -70,6 +71,11 @@ const SidebarTree = () => {
   const threads = useChatStore(state => state.threads);
   const currentThreadId = useChatStore(state => state.currentThreadId);
   const newRoot = useChatStore(state => state.newRoot);
+  const fetchThreads = useChatStore(state => state.fetchThreads);
+  
+  useEffect(() => {
+    fetchThreads();
+  }, [fetchThreads]);
   
   const rootThreads = threads.filter(thread => thread.parentId === null);
   

@@ -1,10 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createThread } from '@/lib/db';
+import { createThread, getAllThreads } from '@/lib/db';
 import { Thread } from '@/lib/types';
 import { nanoid } from 'nanoid';
 
 // For Next.js to properly register this as an API route
 export const dynamic = 'force-dynamic';
+
+export async function GET() {
+  try {
+    const threads = await getAllThreads();
+    return NextResponse.json({ success: true, threads });
+  } catch (error) {
+    console.error('Error fetching threads:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {

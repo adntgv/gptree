@@ -11,6 +11,29 @@ export const initSocket = () => {
     path: '/api/socketio',
   });
 
+  // Listen for user message confirmations
+  socket.on('user_message_saved', (data: { threadId: string; message: Message }) => {
+    // Replace the temporary client message with the server-saved message
+    const { threads } = useChatStore.getState();
+    const thread = threads.find(t => t.id === data.threadId);
+    
+    if (thread) {
+      // Find the most recent user message in the thread
+      const lastUserMessageIndex = thread.messages.findIndex(
+        msg => msg.author === 'user' && msg.text === data.message.text
+      );
+      
+      if (lastUserMessageIndex !== -1) {
+        // Replace temporary message with the server version (which has the ID from the DB)
+        const updatedMessages = [...thread.messages];
+        updatedMessages[lastUserMessageIndex] = data.message;
+        
+        const updatedThread = { ...thread, messages: updatedMessages };
+        useChatStore.getState().updateThread(updatedThread);
+      }
+    }
+  });
+
   // Listen for GPT responses
   socket.on('gpt_response', (data: { threadId: string; message: Message }) => {
     useChatStore.getState().appendMessage(data.threadId, data.message);
