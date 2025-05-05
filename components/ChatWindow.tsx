@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useChatStore } from '@/lib/store';
 import { Message } from '@/lib/types';
+import { testSocketConnection } from '@/lib/socket';
 
 type MessageItemProps = {
   message: Message;
@@ -10,6 +11,29 @@ type MessageItemProps = {
 
 const MessageItem = ({ message }: MessageItemProps) => {
   const isUser = message.author === 'user';
+  const { currentThreadId } = useChatStore();
+  const retryMessage = useChatStore(state => state.retryMessage);
+  
+  // Helper to determine message content
+  const getMessageContent = () => {
+    // For a completed message with content, show the content
+    if (message.text && (message.status === 'completed' || !message.status)) {
+      return message.text;
+    }
+    
+    // For pending messages, show the loading indicator
+    if (message.status === 'pending' || message.status === 'generating') {
+      return '...';
+    }
+    
+    // For error messages, show the error or generic error message
+    if (message.status === 'error') {
+      return message.error || 'Error generating response';
+    }
+    
+    // Fallback
+    return message.text || '';
+  };
   
   // Status indicators for messages
   const renderStatusIndicator = () => {
@@ -17,25 +41,41 @@ const MessageItem = ({ message }: MessageItemProps) => {
       return null;
     }
     
-    if (message.status === 'pending') {
+    if (message.status === 'pending' || message.status === 'generating') {
       return (
         <div className="flex items-center text-xs text-yellow-600 mt-1">
           <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
-          Thinking...
+          {message.status === 'pending' ? 'Thinking...' : 'Generating response...'}
         </div>
       );
     }
     
     if (message.status === 'error') {
       return (
-        <div className="flex items-center text-xs text-red-600 mt-1">
-          <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-          </svg>
-          Error processing message
+        <div className="flex items-center mt-1">
+          <div className="text-xs text-red-600 flex items-center">
+            <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            Error processing message
+          </div>
+          {message.author === 'gpt' && currentThreadId && (
+            <button 
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (currentThreadId && message.id) {
+                  retryMessage(currentThreadId, message.id);
+                }
+              }}
+              className="ml-3 text-xs px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded border border-blue-200"
+            >
+              Retry
+            </button>
+          )}
         </div>
       );
     }
@@ -51,7 +91,7 @@ const MessageItem = ({ message }: MessageItemProps) => {
         </div>
         
         <div className="whitespace-pre-wrap text-gray-800">
-          {message.text || (message.status === 'pending' ? '...' : 'Error generating response')}
+          {getMessageContent()}
         </div>
         
         {renderStatusIndicator()}
@@ -62,6 +102,14 @@ const MessageItem = ({ message }: MessageItemProps) => {
       </div>
     </div>
   );
+};
+
+// Add a quick-access function for socket diagnostic tests
+const runSocketDiagnostic = async () => {
+  console.log('Running socket diagnostic...');
+  const result = await testSocketConnection();
+  console.log('Socket diagnostic result:', result);
+  alert(`Socket connected: ${result.socketStatus.connected}, Socket ID: ${result.socketStatus.id || 'none'}\nMore details in console.`);
 };
 
 const ChatWindow = () => {
@@ -82,12 +130,20 @@ const ChatWindow = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [currentThread?.messages]);
   
+  // Add diagnostic state
+  const [showDiagnostic, setShowDiagnostic] = useState(false);
+  
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!inputText.trim() || !currentThreadId) return;
     
-    await sendMessage(inputText);
+    try {
+      await sendMessage(inputText);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      // Don't refresh page on error, already handled in the store
+    }
     setInputText('');
   };
   
@@ -132,6 +188,12 @@ const ChatWindow = () => {
               Processing...
             </div>
           )}
+          <button 
+            className="px-3 py-1 mr-2 border rounded-md bg-white hover:bg-gray-50 text-gray-700 transition-colors shadow-sm text-sm"
+            onClick={() => setShowDiagnostic(!showDiagnostic)}
+          >
+            {showDiagnostic ? 'Hide Tools' : 'Tools'}
+          </button>
           <button
             className="px-3 py-1 border rounded-md bg-white hover:bg-gray-50 text-gray-700 transition-colors shadow-sm"
             onClick={handleBranch}
@@ -140,6 +202,17 @@ const ChatWindow = () => {
           </button>
         </div>
       </div>
+      
+      {showDiagnostic && (
+        <div className="bg-gray-100 p-2 flex justify-end space-x-2 text-sm">
+          <button
+            onClick={() => runSocketDiagnostic()}
+            className="px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded border border-blue-300"
+          >
+            Test Socket
+          </button>
+        </div>
+      )}
       
       <div className="flex-1 overflow-y-auto bg-white">
         {currentThread.messages.map((message) => (

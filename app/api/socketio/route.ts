@@ -1,12 +1,14 @@
-import { NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 
-export const GET = async (req: Request) => {
-  // Socket.io connections will be handled by the custom server
-  // This route just ensures Next.js doesn't return 404 for Socket.io polling
-  return new NextResponse('Socket.io endpoint', { status: 200 });
-};
+export const dynamic = 'force-dynamic';
 
-export const POST = async (req: Request) => {
-  // Socket.io connections will be handled by the custom server
-  return new NextResponse('Socket.io endpoint', { status: 200 });
-};
+// This route is needed for Socket.IO to work properly with Next.js App Router
+export async function GET(req: NextRequest) {
+  // Return a 200 response to acknowledge the socket connection
+  return new Response(null, { status: 200 });
+}
+
+export async function POST(req: NextRequest) {
+  // Handle socket.io POST requests
+  return new Response(null, { status: 200 });
+}

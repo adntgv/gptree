@@ -27,10 +27,16 @@ const ThreadItem = ({ thread, level, isActive }: ThreadItemProps) => {
   };
   
   // Check if there are any pending messages in this thread
-  const hasPendingMessages = thread.messages.some(msg => msg.status === 'pending');
+  const hasPendingMessages = thread.hasPending !== undefined 
+    ? thread.hasPending 
+    : thread.messages.some(msg => 
+        msg.status === 'pending' || msg.status === 'generating'
+      );
   
   // Check if there are any error messages in this thread
-  const hasErrorMessages = thread.messages.some(msg => msg.status === 'error');
+  const hasErrorMessages = thread.hasError !== undefined
+    ? thread.hasError
+    : thread.messages.some(msg => msg.status === 'error');
   
   return (
     <div className="mb-1">
@@ -108,7 +114,9 @@ const SidebarTree = () => {
   
   // Count total pending messages across all threads
   const pendingMessagesCount = threads.reduce((count, thread) => {
-    const threadPendingCount = thread.messages.filter(m => m.status === 'pending').length;
+    const threadPendingCount = thread.messages.filter(
+      m => m.status === 'pending' || m.status === 'generating'
+    ).length;
     return count + threadPendingCount;
   }, 0);
   

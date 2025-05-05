@@ -7,6 +7,7 @@ export type Message = {
   text: string;
   timestamp: number;
   status?: 'pending' | 'generating' | 'completed' | 'error';
+  error?: string;
 };
 
 export type Thread = {
@@ -18,6 +19,8 @@ export type Thread = {
   children: Thread[];
   summary?: string;            // auto-generated branch recap
   hasUnread?: boolean;         // indicates new unread messages
+  hasPending?: boolean;        // has pending messages
+  hasError?: boolean;          // has error messages
 };
 
 export type NextApiResponseServerIO = NextApiResponse & {

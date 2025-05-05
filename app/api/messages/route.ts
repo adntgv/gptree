@@ -48,6 +48,52 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Create the pending message in the database (server-side)
+    // This ensures the message exists before we try to update it
+    let pendingMessage;
+    try {
+      // If client sent a pendingMessageId, use it instead of creating a new one
+      if (pendingMessageId) {
+        console.log(`Using client-provided pendingMessageId: ${pendingMessageId}`);
+        // First check if the message already exists in the database
+        const thread = await getThreadById(threadId);
+        const existingMessage = thread?.messages.find(m => m.id === pendingMessageId);
+        
+        if (existingMessage) {
+          console.log('Message already exists in database, using it');
+          pendingMessage = existingMessage;
+        } else {
+          // Create the message with the provided ID
+          pendingMessage = await addMessageToThread(threadId, {
+            id: pendingMessageId, // Use the client-provided ID
+            author: 'gpt',
+            text: '',
+            timestamp: Date.now(),
+            status: 'pending'
+          });
+        }
+      } else {
+        // Create a new message with a server-generated ID
+        pendingMessage = await addMessageToThread(threadId, {
+          author: 'gpt',
+          text: '',
+          timestamp: Date.now(),
+          status: 'pending'
+        });
+      }
+
+      // Emit the pending message to the client
+      if (io) {
+        io.emit('gpt_response', {
+          threadId,
+          message: pendingMessage,
+        });
+      }
+    } catch (error) {
+      console.error('Error creating pending message:', error);
+      return NextResponse.json({ error: 'Failed to create pending message' }, { status: 500 });
+    }
+
     // Queue the task of generating a GPT response
     const taskId = `chat-${threadId}-${nanoid(6)}`;
     
@@ -57,98 +103,136 @@ export async function POST(req: NextRequest) {
         const updatedThread = await getThreadById(threadId);
         if (!updatedThread) return;
         
-        // If the client sent a pendingMessageId, update it or create a new GPT message
-        let gptMessage;
-        
-        if (pendingMessageId) {
-          // Update the existing pending message's status and content
-          gptMessage = await updateMessageStatus(threadId, pendingMessageId, 'generating');
+        // Update the pending message status to generating
+        try {
+          await updateMessageStatus(threadId, pendingMessage.id, 'generating');
           
           // Emit status update
           if (io) {
             io.emit('message_status', {
               threadId,
-              messageId: pendingMessageId,
+              messageId: pendingMessage.id,
               status: 'generating',
             });
           }
+        } catch (error) {
+          console.error('Error updating message status to generating:', error);
         }
         
         // Generate GPT response
         try {
           const gptResponseText = await generateChatResponse(updatedThread.messages);
           
-          // Update or add GPT message
-          if (pendingMessageId) {
-            // Update the existing message
-            gptMessage = await updateMessageStatus(threadId, pendingMessageId, 'completed', gptResponseText);
-          } else {
-            // Add a new message (fallback if no pendingMessageId)
-            gptMessage = await addMessageToThread(threadId, {
-              author: 'gpt',
-              text: gptResponseText,
-              timestamp: Date.now(),
-              status: 'completed',
-            });
-          }
-          
-          // Get updated thread for summarization
-          const finalThread = await getThreadById(threadId);
-          if (!finalThread) return;
-          
-          // Generate summary for this thread
-          const summary = await generateThreadSummary(finalThread);
-          await updateThreadSummary(threadId, summary);
-          
-          // Emit socket events for real-time updates
-          if (io) {
-            // Emit GPT response
-            io.emit('gpt_response', {
-              threadId,
-              message: gptMessage,
-            });
+          // Update GPT message to completed status with the response text
+          try {
+            const gptMessage = await updateMessageStatus(threadId, pendingMessage.id, 'completed', gptResponseText);
             
-            // Emit summary update
-            io.emit('thread_summary', {
-              threadId,
-              summary,
-            });
-          }
-        } catch (error) {
-          console.error('Error generating GPT response:', error);
-          
-          // Update message status to error if there was a pendingMessageId
-          if (pendingMessageId) {
-            await updateMessageStatus(threadId, pendingMessageId, 'error');
+            // Get updated thread for summarization
+            const finalThread = await getThreadById(threadId);
+            if (!finalThread) return;
             
-            // Emit error status
-            if (io) {
-              io.emit('message_status', {
+            // Generate summary for this thread
+            const summary = await generateThreadSummary(finalThread);
+            await updateThreadSummary(threadId, summary);
+            
+            // Emit socket events for real-time updates - only if we successfully updated the message
+            if (io && gptMessage) {
+              // Emit GPT response after the message is fully updated
+              io.emit('gpt_response', {
                 threadId,
-                messageId: pendingMessageId,
-                status: 'error',
+                message: gptMessage,
+              });
+              
+              // Emit summary update
+              io.emit('thread_summary', {
+                threadId,
+                summary,
               });
             }
+          } catch (updateError) {
+            console.error('Error updating message to completed status:', updateError);
+            throw updateError; // Re-throw to be caught by outer catch block
+          }
+        } catch (error: any) {
+          console.error('Error generating GPT response:', error);
+          
+          // Capture the error message to display to the user
+          const errorMessage = error?.message || 'Error generating response';
+          
+          try {
+            // Check if message has already been updated to completed (in case of a race condition)
+            const thread = await getThreadById(threadId);
+            const messageToUpdate = thread?.messages.find(m => m.id === pendingMessage.id);
+            
+            // Only update to error if not already completed
+            if (messageToUpdate && messageToUpdate.status !== 'completed') {
+              // Update message status to error
+              await updateMessageStatus(threadId, pendingMessage.id, 'error', '', errorMessage);
+              
+              // Emit error status
+              if (io) {
+                io.emit('message_status', {
+                  threadId,
+                  messageId: pendingMessage.id,
+                  status: 'error',
+                  error: errorMessage
+                });
+                
+                // Also send the error message in the response
+                io.emit('gpt_response', {
+                  threadId,
+                  message: {
+                    id: pendingMessage.id,
+                    author: 'gpt',
+                    text: '',
+                    error: errorMessage,
+                    timestamp: Date.now(),
+                    status: 'error'
+                  },
+                });
+              }
+            }
+          } catch (updateError) {
+            console.error('Error updating message status to error:', updateError);
           }
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error processing chat task:', error);
-        // Mark message as error if provided
-        if (pendingMessageId) {
-          await updateMessageStatus(threadId, pendingMessageId, 'error');
+        // Capture the error message
+        const errorMessage = error?.message || 'Error processing chat task';
+        
+        try {
+          // Update message status to error
+          await updateMessageStatus(threadId, pendingMessage.id, 'error', '', errorMessage);
           
           if (io) {
             io.emit('message_status', {
               threadId, 
-              messageId: pendingMessageId,
+              messageId: pendingMessage.id,
               status: 'error',
+              error: errorMessage
+            });
+            
+            // Send error message
+            io.emit('gpt_response', {
+              threadId,
+              message: {
+                id: pendingMessage.id,
+                author: 'gpt',
+                text: '',
+                error: errorMessage,
+                timestamp: Date.now(),
+                status: 'error'
+              },
             });
           }
+        } catch (updateError) {
+          console.error('Error updating message status to error:', updateError);
         }
       }
     });
     
-    return NextResponse.json({ success: true, taskId, message: userMessage });
+    return NextResponse.json({ success: true, taskId, message: userMessage, pendingMessageId: pendingMessage.id });
   } catch (error) {
     console.error('Error handling /api/messages:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

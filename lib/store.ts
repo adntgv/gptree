@@ -9,12 +9,13 @@ interface ChatState {
   branchCurrent: () => void;
   forkAt: (msgId: string, title: string) => void;
   selectThread: (id: string) => void;
-  sendMessage: (text: string) => Promise<void>;
+  sendMessage: (text: string) => Promise<boolean>;
   updateThread: (thread: Thread) => void;
   appendMessage: (threadId: string, message: Message) => void;
-  updateMessageStatus: (threadId: string, messageId: string, status: 'pending' | 'generating' | 'completed' | 'error') => void;
+  updateMessageStatus: (threadId: string, messageId: string, status: 'pending' | 'generating' | 'completed' | 'error', text?: string, error?: string) => void;
   markThreadRead: (threadId: string) => void;
   fetchThreads: () => Promise<void>;
+  retryMessage: (threadId: string, messageId: string) => Promise<void>;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -191,7 +192,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
   
   sendMessage: async (text) => {
     const { currentThreadId, threads } = get();
-    if (!currentThreadId) return;
+    if (!currentThreadId) return false;
+    
+    // Ensure socket is initialized
+    try {
+      const { getSocket } = await import('./socket');
+      await getSocket();
+    } catch (error) {
+      console.error('Failed to initialize socket before sending message:', error);
+      // Continue anyway, as the API call doesn't require socket to be connected
+    }
     
     const userMessage: Message = {
       id: nanoid(),
@@ -205,16 +215,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
     get().appendMessage(currentThreadId, userMessage);
     
     try {
-      // Create a pending GPT message immediately
+      // Create a temporary pending message to show in the UI immediately
+      const tempPendingId = nanoid();
       const pendingMessage: Message = {
-        id: nanoid(),
+        id: tempPendingId,
         author: 'gpt',
         text: '',
         timestamp: Date.now(),
         status: 'pending'
       };
       
-      // Add the pending message
+      // Add the temporary pending message
       get().appendMessage(currentThreadId, pendingMessage);
       
       // Call the API to get GPT response
@@ -226,19 +237,46 @@ export const useChatStore = create<ChatState>((set, get) => ({
         body: JSON.stringify({
           threadId: currentThreadId,
           message: text,
-          pendingMessageId: pendingMessage.id
+          pendingMessageId: tempPendingId // Send the temporary ID - this can help with syncing
         }),
       });
       
       if (!response.ok) {
-        // Mark message as error if request fails
-        get().updateMessageStatus(currentThreadId, pendingMessage.id, 'error');
+        // Mark temporary message as error if request fails
+        get().updateMessageStatus(currentThreadId, tempPendingId, 'error', '', 'Failed to send message to API');
         throw new Error('Failed to send message to API');
       }
       
+      const data = await response.json();
+      console.log('Message sent successfully:', data);
+      
+      // If the server sends back a different pendingMessageId, we need to update our UI
+      if (data.pendingMessageId && data.pendingMessageId !== tempPendingId) {
+        console.log(`Server using different message ID: ${data.pendingMessageId} vs our ${tempPendingId}`);
+        
+        // Update our temporary message ID to match the server's ID to ensure updates work
+        set(state => ({
+          threads: state.threads.map(thread => {
+            if (thread.id === currentThreadId) {
+              return {
+                ...thread,
+                messages: thread.messages.map(msg => 
+                  msg.id === tempPendingId
+                    ? { ...msg, id: data.pendingMessageId }
+                    : msg
+                )
+              };
+            }
+            return thread;
+          })
+        }));
+      }
+      
       // API will handle updating the GPT message through a websocket
+      return true;
     } catch (error) {
       console.error('Error sending message:', error);
+      return false;
     }
   },
   
@@ -271,22 +309,37 @@ export const useChatStore = create<ChatState>((set, get) => ({
     });
   },
   
-  updateMessageStatus: (threadId, messageId, status) => {
-    set(state => ({
-      threads: state.threads.map(thread => {
+  updateMessageStatus: (threadId, messageId, status, text, error) => {
+    set(state => {
+      // Create a new threads array with the updated message status
+      const updatedThreads = state.threads.map(thread => {
         if (thread.id === threadId) {
+          // Update the message in this thread
+          const updatedMessages = thread.messages.map(message => 
+            message.id === messageId 
+              ? { ...message, status, ...(text ? { text } : {}), ...(error ? { error } : {}) } 
+              : message
+          );
+          
+          // Check if thread has pending or error messages
+          const hasError = updatedMessages.some(msg => msg.status === 'error');
+          const hasPending = updatedMessages.some(msg => 
+            msg.status === 'pending' || msg.status === 'generating'
+          );
+          
+          // Return updated thread
           return {
             ...thread,
-            messages: thread.messages.map(message => 
-              message.id === messageId 
-                ? { ...message, status } 
-                : message
-            )
+            messages: updatedMessages,
+            // Maintain hasUnread if not the current thread
+            hasUnread: thread.id === state.currentThreadId ? false : thread.hasUnread
           };
         }
         return thread;
-      })
-    }));
+      });
+      
+      return { threads: updatedThreads };
+    });
   },
   
   markThreadRead: (threadId) => {
@@ -297,5 +350,48 @@ export const useChatStore = create<ChatState>((set, get) => ({
           : thread
       )
     }));
+  },
+  
+  retryMessage: async (threadId, messageId) => {
+    const { threads } = get();
+    const thread = threads.find(t => t.id === threadId);
+    
+    if (!thread) return;
+    
+    // Find the failing message and the last user message
+    const failingMessage = thread.messages.find(m => m.id === messageId);
+    
+    if (!failingMessage || failingMessage.author !== 'gpt' || failingMessage.status !== 'error') {
+      console.error('Cannot retry: message not found or not an error message');
+      return;
+    }
+    
+    // Update status to pending
+    get().updateMessageStatus(threadId, messageId, 'pending');
+    
+    try {
+      // Call the API to retry generating the message
+      const response = await fetch('/api/messages/retry', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          threadId,
+          messageId
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        get().updateMessageStatus(threadId, messageId, 'error', undefined, errorData.error || 'Failed to retry message');
+        throw new Error('Failed to retry message generation');
+      }
+      
+      // API will handle updating the message through the socket
+    } catch (error) {
+      console.error('Error retrying message:', error);
+      get().updateMessageStatus(threadId, messageId, 'error', undefined, error instanceof Error ? error.message : 'Unknown error');
+    }
   }
 })); 

@@ -23,8 +23,8 @@ app.prepare().then(() => {
       console.log(`Incoming request: ${pathname}`);
 
       // Handle socket.io requests
-      if (pathname.startsWith('/socket.io')) {
-        console.log('Socket.IO request handled');
+      if (pathname.startsWith('/api/socketio')) {
+        console.log('Socket.IO request received:', pathname);
         // Let socket.io handler deal with these
         return;
       }
@@ -40,11 +40,13 @@ app.prepare().then(() => {
     }
   });
 
-  // Initialize Socket.io
-  initSocketServer(server);
+  // Initialize Socket.io with correct path configuration
+  const io = initSocketServer(server);
+  console.log('Socket server initialized in custom server');
 
   server.listen(port, (err) => {
     if (err) throw err;
     console.log(`> Ready on http://${hostname}:${port}`);
+    console.log(`> Socket.IO server running on same port`);
   });
 });

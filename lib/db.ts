@@ -73,7 +73,10 @@ export async function updateThread(thread: Thread): Promise<Thread> {
   throw new Error(`Thread with id ${thread.id} not found`);
 }
 
-export async function addMessageToThread(threadId: string, message: Omit<Message, 'id'>): Promise<Message> {
+export async function addMessageToThread(
+  threadId: string, 
+  message: Omit<Message, 'id'> & { id?: string }
+): Promise<Message> {
   await db.read();
   
   const thread = db.data.threads.find(t => t.id === threadId);
@@ -84,7 +87,7 @@ export async function addMessageToThread(threadId: string, message: Omit<Message
   
   const newMessage: Message = {
     ...message,
-    id: nanoid(),
+    id: message.id || nanoid(), // Use provided ID or generate one
   };
   
   thread.messages.push(newMessage);
@@ -114,8 +117,9 @@ export async function updateMessageStatus(
   threadId: string, 
   messageId: string, 
   status: 'pending' | 'generating' | 'completed' | 'error',
-  text?: string
-): Promise<Message | null> {
+  text?: string,
+  error?: string
+): Promise<Message> {
   await db.read();
   
   const thread = db.data.threads.find(t => t.id === threadId);
@@ -127,8 +131,7 @@ export async function updateMessageStatus(
   const messageIndex = thread.messages.findIndex(m => m.id === messageId);
   
   if (messageIndex === -1) {
-    console.error(`Message with id ${messageId} not found in thread ${threadId}`);
-    return null;
+    throw new Error(`Message with id ${messageId} not found in thread ${threadId}`);
   }
   
   // Update the message
@@ -136,7 +139,8 @@ export async function updateMessageStatus(
     ...thread.messages[messageIndex],
     status,
     // Update text only if provided
-    ...(text !== undefined ? { text } : {})
+    ...(text !== undefined ? { text } : {}),
+    ...(error !== undefined ? { error } : {})
   };
   
   thread.messages[messageIndex] = updatedMessage;
