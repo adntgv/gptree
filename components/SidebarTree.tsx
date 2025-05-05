@@ -61,7 +61,10 @@ const ThreadItem = ({ thread, level, isActive }: ThreadItemProps) => {
             
             {/* Status indicators */}
             {thread.hasUnread && (
-              <span className="ml-2 w-2 h-2 bg-blue-500 rounded-full" title="Unread messages"></span>
+              <span className="ml-2 flex items-center bg-blue-100 px-1.5 py-0.5 rounded-full" title="Unread messages">
+                <span className="w-2 h-2 bg-blue-500 rounded-full mr-1"></span>
+                <span className="text-xs text-blue-700">New</span>
+              </span>
             )}
             {hasPendingMessages && (
               <span className="ml-2 text-xs bg-yellow-100 text-yellow-800 px-1 rounded">

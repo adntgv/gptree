@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useChatStore } from '@/lib/store';
 import { Message } from '@/lib/types';
 import { testSocketConnection } from '@/lib/socket';
+import ReactMarkdown from 'react-markdown';
 
 type MessageItemProps = {
   message: Message;
@@ -33,6 +34,12 @@ const MessageItem = ({ message }: MessageItemProps) => {
     
     // Fallback
     return message.text || '';
+  };
+
+  const getMessageContentParsed = () => {
+    const content = getMessageContent();
+
+    return <ReactMarkdown>{content}</ReactMarkdown>;
   };
   
   // Status indicators for messages
@@ -91,7 +98,9 @@ const MessageItem = ({ message }: MessageItemProps) => {
         </div>
         
         <div className="whitespace-pre-wrap text-gray-800">
-          {getMessageContent()}
+          {/* parse markdown */}
+          
+          {getMessageContentParsed()}
         </div>
         
         {renderStatusIndicator()}

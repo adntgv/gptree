@@ -14,6 +14,7 @@ interface ChatState {
   appendMessage: (threadId: string, message: Message) => void;
   updateMessageStatus: (threadId: string, messageId: string, status: 'pending' | 'generating' | 'completed' | 'error', text?: string, error?: string) => void;
   markThreadRead: (threadId: string) => void;
+  markThreadUnread: (threadId: string) => void;
   fetchThreads: () => Promise<void>;
   retryMessage: (threadId: string, messageId: string) => Promise<void>;
 }
@@ -293,14 +294,23 @@ export const useChatStore = create<ChatState>((set, get) => ({
       // Check if this is not the currently selected thread
       const isCurrentThread = threadId === state.currentThreadId;
       
+      // Only mark thread as having unread messages if:
+      // 1. It's not the current thread
+      // 2. The message is from GPT (not user messages)
+      // 3. The message is completed (to avoid marking as unread for pending/error states)
+      const shouldMarkUnread = !isCurrentThread && 
+                               message.author === 'gpt' && 
+                               message.status === 'completed' &&
+                               message.text.trim() !== '';
+      
       return {
         threads: state.threads.map(thread => {
           if (thread.id === threadId) {
             return {
               ...thread,
               messages: [...thread.messages, message],
-              // Mark thread as having unread messages if not the current thread
-              hasUnread: isCurrentThread ? thread.hasUnread : true
+              // Mark thread as having unread messages if specified by conditions
+              hasUnread: shouldMarkUnread ? true : (isCurrentThread ? false : thread.hasUnread)
             };
           }
           return thread;
@@ -347,6 +357,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
       threads: state.threads.map(thread => 
         thread.id === threadId 
           ? { ...thread, hasUnread: false } 
+          : thread
+      )
+    }));
+  },
+  
+  markThreadUnread: (threadId) => {
+    set(state => ({
+      threads: state.threads.map(thread => 
+        thread.id === threadId 
+          ? { ...thread, hasUnread: true } 
           : thread
       )
     }));

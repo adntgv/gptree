@@ -108,10 +108,13 @@ const setupSocketListeners = () => {
   socket.on('gpt_response', (data: { threadId: string; message: Message }) => {
     console.log(`Received gpt_response: ThreadID=${data.threadId}, MessageID=${data.message.id}, Status=${data.message.status}`);
     
-    const { threads } = useChatStore.getState();
+    const { threads, currentThreadId } = useChatStore.getState();
     const thread = threads.find(t => t.id === data.threadId);
     
     if (thread) {
+      // Check if this message is for the current thread or a different one
+      const isCurrentThread = data.threadId === currentThreadId;
+      
       // Check if this message ID already exists in the thread (might be an update to existing message)
       const existingMessageIndex = thread.messages.findIndex(m => m.id === data.message.id);
       
@@ -128,20 +131,47 @@ const setupSocketListeners = () => {
         const updatedMessages = [...thread.messages];
         updatedMessages[existingMessageIndex] = updatedMessage;
         
+        // Only mark as unread if:
+        // 1. It's not the current thread
+        // 2. The message is completed (to avoid marking as unread for pending/error states)
+        // 3. The message is from GPT (not user messages)
+        const shouldMarkUnread = !isCurrentThread && 
+                                 updatedMessage.status === 'completed' && 
+                                 updatedMessage.author === 'gpt' &&
+                                 updatedMessage.text.trim() !== '';
+        
         const updatedThread = { 
           ...thread, 
           messages: updatedMessages,
           // Check if thread still has pending or error messages after this update
-          // This is important for sidebar status indicators
           hasPending: updatedMessages.some(m => m.status === 'pending' || m.status === 'generating'),
-          hasError: updatedMessages.some(m => m.status === 'error')
+          hasError: updatedMessages.some(m => m.status === 'error'),
+          // Mark as unread if it's not the current thread and the message is completed
+          hasUnread: shouldMarkUnread ? true : thread.hasUnread
         };
         
         useChatStore.getState().updateThread(updatedThread);
+        
+        if (shouldMarkUnread) {
+          playNotificationSound();
+        }
       } else {
         console.log(`Adding new message as it doesn't exist yet`);
         // Append new message
         useChatStore.getState().appendMessage(data.threadId, data.message);
+        
+        // If this is a completed GPT message to a non-current thread, mark it as unread
+        if (!isCurrentThread && 
+            data.message.status === 'completed' && 
+            data.message.author === 'gpt' &&
+            data.message.text.trim() !== '') {
+          
+          // Mark thread as unread
+          useChatStore.getState().markThreadUnread(data.threadId);
+          
+          // Play notification sound for new messages
+          playNotificationSound();
+        }
         
         // Force a refresh of the thread status in sidebar
         const updatedThreadAfterAppend = threads.find(t => t.id === data.threadId);
@@ -293,5 +323,20 @@ export const testSocketConnection = async () => {
       socketStatus: { connected: false, id: null },
       error: error instanceof Error ? error.message : String(error)
     };
+  }
+};
+
+// Function to play notification sound when new messages arrive
+const playNotificationSound = () => {
+  try {
+    // Create audio element
+    const audio = new Audio('/notification.mp3');
+    audio.volume = 1;
+    audio.play().catch(error => {
+      // Browser might block autoplay
+      console.log('Could not play notification sound:', error);
+    });
+  } catch (error) {
+    console.error('Error playing notification sound:', error);
   }
 }; 

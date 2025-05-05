@@ -17,6 +17,7 @@
     "openai": "^4.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-markdown": "^10.1.0",
     "socket.io": "^4.7.0",
     "socket.io-client": "^4.7.0",
     "zustand": "^4.5.0"
